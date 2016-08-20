@@ -2,7 +2,6 @@
   "name": "levelscan",
   "version": "1.0.1",
   "description": "LevelDB command line scanning utility",
-  "main": "./lib/index.js",
   "bin": {
     "levelscan": "./bin/levelscan.js"
   },
