@@ -1,13 +1,13 @@
 {
-  "name": "node-levelscan",
+  "name": "levelscan",
   "version": "1.0.0",
   "description": "LevelDB command line scanning utility",
   "main": "./lib/index.js",
   "bin": {
-    "levelscan": "./bin/levelscan"
+    "levelscan": "./bin/levelscan.js"
   },
   "scripts": {
-    "start": "node ./lib/index"
+    "start": "node ./bin/levelscan.js"
   },
   "repository": {
     "type": "git",
