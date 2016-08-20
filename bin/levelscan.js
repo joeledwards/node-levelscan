@@ -82,6 +82,7 @@ let watch = durations.stopwatch().start();
 // Create the read stream
 db.createReadStream(cfg)
 .on('data', data => {
+  count++;
   let record = {};
 
   if (program.excludeKeys && !program.excludeValues) {
