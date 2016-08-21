@@ -73,8 +73,8 @@ function closeDb() {
   });
 }
 
-log(`Streaming from db '${dbPath}' with the following configuration:`);
-log(JSON.stringify(cfg, null, 2));
+log(`Streaming from db: ${dbPath}`);
+log('Read stream options:\n', JSON.stringify(cfg, null, 2));
 
 let count = 0;
 let watch = durations.stopwatch().start();
