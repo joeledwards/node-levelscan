@@ -12,7 +12,8 @@ To scan the first 100 records from the database with all the default options,
 simply provide the path to the database.
 ```bash
 $ levelscan path/to/my-leveldb
-Streaming from db 'path/to/my-leveldb' with the following configuration:
+Streaming from db: path/to/my-leveldb
+Read stream options:
 {
   "limit": 100,
   "keys": true,
