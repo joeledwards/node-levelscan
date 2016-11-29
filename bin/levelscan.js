@@ -8,6 +8,8 @@ const defaultLimit = 100;
 
 program
 .arguments('<db-path>')
+.option('-c, --count',
+        'Just count the number of keys (limit and bounds apply).')
 .option('-e, --key-encoding <encoding>', 'Encoding for keys.')
 .option('-E, --value-encoding <encoding>', 'Encoding for values.')
 .option('-j, --json', 'Format records as JSON.')
@@ -20,32 +22,60 @@ program
         parseInt)
 .option('-L, --unlimited', 'Stream all records from the database (no limit).')
 .option('-r, --reverse', 'Stream in descending instead of ascending order.')
-.option('-q, --quiet', 'Only output records')
+.option('-q, --quiet', 'Only output records (or supress progress for count)')
 .option('-x, --exclude-keys', 'Exclude keys from the stream.')
 .option('-X, --exclude-values', 'Exclude values from the stream.')
 .parse(process.argv);
 
-let cfg = {}
+let isUnlimited = true;
+let cfg = {};
 
-if (program.keyEncoding) cfg.keyEncoding = program.keyEncoding;
-if (program.valueEncoding) cfg.valueEncoding = program.valueEncoding;
+if (!program.count) {
+  if (program.keyEncoding) {
+    cfg.keyEncoding = program.keyEncoding;
+  }
 
-if (program.gt) cfg.gt = program.gt;
-if (program.gte) cfg.gte = program.gte;
-if (program.lt) cfg.lt = program.lt;
-if (program.lte) cfg.lte = program.lte;
+  if (program.valueEncoding) {
+    cfg.valueEncoding = program.valueEncoding;
+  }
+
+  cfg.keys = program.excludeKeys ? false : true;
+  cfg.reverse = program.reverse ? true : false;
+  cfg.values = program.excludeValues ? false : true;
+} else {
+  cfg.keys = true;
+  cfg.values = false;
+}
+
+if (program.gt) {
+  cfg.gt = program.gt;
+  isUnlimited = false;
+}
+
+if (program.gte) {
+  cfg.gte = program.gte;
+  isUnlimited = false;
+}
+
+if (program.lt) {
+  cfg.lt = program.lt;
+  isUnlimited = false;
+}
+
+if (program.lte) {
+  cfg.lte = program.lte;
+  isUnlimited = false;
+}
 
 if (!program.unlimited) {
+  isUnlimited = false;
+
   if (program.limit) {
     cfg.limit = program.limit;
   } else {
     cfg.limit = defaultLimit;
   }
 }
-
-cfg.keys = program.excludeKeys ? false : true;
-cfg.reverse = program.reverse ? true : false;
-cfg.values = program.excludeValues ? false : true;
 
 // Log function which can be silenced via the --quiet option
 function log(...args) {
@@ -73,43 +103,70 @@ function closeDb() {
   });
 }
 
-log(`Streaming from db: ${dbPath}`);
+if (program.count) {
+  log(`Counting records in db: ${dbPath}`);
+} else {
+  log(`Streaming from db: ${dbPath}`);
+}
 log('Read stream options:\n', JSON.stringify(cfg, null, 2));
 
 let count = 0;
 let watch = durations.stopwatch().start();
+let reportWatch = durations.stopwatch().start();
+let reportCount = 0;
 
 // Create the read stream
 db.createReadStream(cfg)
 .on('data', data => {
   count++;
-  let record = {};
 
-  if (program.excludeKeys && !program.excludeValues) {
-    record.value = data;
-  } else if (!program.excludeKeys && program.excludeValues) {
-    record.key = data;
-  } else {
-    record.key = data.key;
-    record.value = data.value;
-  }
+  if (program.count) {
+    reportCount++;
 
-  if (program.json) {
-    console.log(JSON.stringify(record));
-  } else if (program.excludeKeys) {
-    if (!program.excludeValues) {
-      console.log(record.value);
+    if (reportWatch.duration().millis() >= 1000) {
+      console.log(`${reportCount} records in the last ${reportWatch}` +
+                  ` (${count} records in ${watch})`);
+      reportWatch.reset().start();
+      reportCount = 0;
     }
-  } else if (program.excludeValues) {
-    console.log(record.key);
   } else {
-    console.log(`${record.key || ""} : ${record.value || ""}`);
+    let record = {};
+
+    if (program.excludeKeys && !program.excludeValues) {
+      record.value = data;
+    } else if (!program.excludeKeys && program.excludeValues) {
+      record.key = data;
+    } else {
+      record.key = data.key;
+      record.value = data.value;
+    }
+
+    if (program.json) {
+      console.log(JSON.stringify(record));
+    } else if (program.excludeKeys) {
+      if (!program.excludeValues) {
+        console.log(record.value);
+      }
+    } else if (program.excludeValues) {
+      console.log(record.key);
+    } else {
+      console.log(`${record.key || ""} : ${record.value || ""}`);
+    }
   }
 })
-.on('end', () => log(`Read ${count} records in ${watch}`))
+.on('end', () => {
+  if (program.count) {
+    let limitString = isUnlimited ? "All records counted. " :
+        "Limited count; may not include all records.";
+
+    log(`Counted ${count} records in ${watch}. ${limitString}`);
+  } else {
+    log(`Read ${count} records in ${watch}`);
+  }
+})
 .on('close', () => closeDb())
 .on('error', error => {
-  console.error(`Error reading from database '${dbPath}':`, error);
+  console.error(`Error streaming from database '${dbPath}':`, error);
   closeDb()
 });
 
