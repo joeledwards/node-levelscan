@@ -109,7 +109,8 @@ if (program.count) {
 } else {
   log(`Streaming from db: ${dbPath}`);
 }
-log('Read stream options:\n', JSON.stringify(cfg, null, 2));
+
+log(`Read stream options:\n${JSON.stringify(cfg, null, 2)}`);
 
 let count = 0;
 let watch = durations.stopwatch().start();
