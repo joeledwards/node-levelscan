@@ -9,7 +9,8 @@ const defaultLimit = 100;
 program
 .arguments('<db-path>')
 .option('-c, --count',
-        'Just count the number of keys (limit and bounds apply).')
+        'Just count the number of keys (bounds apply,' +
+        ' implies --unlimited unless --limit is specified')
 .option('-e, --key-encoding <encoding>', 'Encoding for keys.')
 .option('-E, --value-encoding <encoding>', 'Encoding for values.')
 .option('-j, --json', 'Format records as JSON.')
@@ -68,12 +69,12 @@ if (program.lte) {
 }
 
 if (!program.unlimited) {
-  isUnlimited = false;
-
   if (program.limit) {
     cfg.limit = program.limit;
-  } else {
+    isUnlimited = false;
+  } else if (!program.count) {
     cfg.limit = defaultLimit;
+    isUnlimited = false;
   }
 }
 
@@ -124,7 +125,7 @@ db.createReadStream(cfg)
     reportCount++;
 
     if (reportWatch.duration().millis() >= 1000) {
-      console.log(`${reportCount} records in the last ${reportWatch}` +
+      log(`${reportCount} records in the last ${reportWatch}` +
                   ` (${count} records in ${watch})`);
       reportWatch.reset().start();
       reportCount = 0;
@@ -159,7 +160,7 @@ db.createReadStream(cfg)
     let limitString = isUnlimited ? "All records counted. " :
         "Limited count; may not include all records.";
 
-    log(`Counted ${count} records in ${watch}. ${limitString}`);
+    console.log(`Counted ${count} records in ${watch}. ${limitString}`);
   } else {
     log(`Read ${count} records in ${watch}`);
   }
