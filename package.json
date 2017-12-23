@@ -28,7 +28,9 @@
   },
   "homepage": "https://github.com/joeledwards/node-levelscan#readme",
   "dependencies": {
+    "@buzuli/color": "^1.1.1",
     "async": "^2.1.2",
+    "commander": "^2.12.2",
     "durations": "^3.0.0",
     "level-hyper": "^1.2.1",
     "leveldown": "^1.5.0",
