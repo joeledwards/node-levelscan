@@ -26,10 +26,14 @@ program
 .option('-L, --unlimited', 'Stream all records from the database (no limit).')
 .option('-r, --reverse', 'Stream in descending instead of ascending order.')
 .option('-q, --quiet', 'Only output records (or supress progress for count)')
+.option('-K, --kx <key-expression', 'Only return records with a matching key')
+.option('-V, --vx <value-expression', 'Only return records with a matching value')
 .option('-x, --exclude-keys', 'Exclude keys from the stream.')
 .option('-X, --exclude-values', 'Exclude values from the stream.')
 .parse(process.argv);
 
+let keyRegex = null;
+let valueRegex = null;
 let isUnlimited = true;
 let cfg = {};
 
@@ -42,12 +46,12 @@ if (!program.count) {
     cfg.valueEncoding = program.valueEncoding;
   }
 
-  cfg.keys = program.excludeKeys ? false : true;
+  cfg.keys = (isNil(keyRegex) && program.excludeKeys) ? false : true;
+  cfg.values = (isNil(valueRegex) && program.excludeValues) ? false : true;
   cfg.reverse = program.reverse ? true : false;
-  cfg.values = program.excludeValues ? false : true;
 } else {
   cfg.keys = true;
-  cfg.values = false;
+  cfg.values = !isNil(valueRegex)
 }
 
 if (program.gt) {
@@ -77,6 +81,24 @@ if (!program.unlimited) {
   } else if (!program.count) {
     cfg.limit = defaultLimit;
     isUnlimited = false;
+  }
+}
+
+if (program.kx) {
+  try {
+    keyRegex = new RegExp(program.kx)
+  } catch (error) {
+    console.warn(`Invalid key expression: ${program.kx}`)
+    program.help()
+  }
+}
+
+if (program.vx) {
+  try {
+    valueRegex = new RegExp(program.vx)
+  } catch (error) {
+    console.warn(`Invalid key expression: ${program.vx}`)
+    program.help()
   }
 }
 
@@ -118,10 +140,44 @@ let count = 0;
 let watch = durations.stopwatch().start();
 let reportWatch = durations.stopwatch().start();
 let reportCount = 0;
+let filterCount = 0;
 
 // Create the read stream
 db.createReadStream(cfg)
 .on('data', data => {
+  let key;
+  let value;
+  let record = {};
+
+  if (cfg.keys) {
+    if (cfg.values) {
+      key = data.key
+      value = data.value
+    } else {
+      key = data
+    }
+  } else if (cfg.values) {
+    value = data
+  }
+
+  if (!program.excludeValues) {
+    record.value = value;
+  }
+
+  if (!program.excludeKeys) {
+    record.key = key;
+  }
+
+  if (!isNil(key) && !isNil(keyRegex) && isNil(key.match(keyRegex))) {
+    filterCount++;
+    return;
+  }
+
+  if (!isNil(value) && !isNil(valueRegex) && isNil(value.match(valueRegex))) {
+    filterCount++;
+    return;
+  }
+
   count++;
 
   if (program.count) {
@@ -129,7 +185,7 @@ db.createReadStream(cfg)
 
     if (reportWatch.duration().millis() >= 1000) {
       log(`${orange(reportCount)} records in the last ${green(reportWatch)}` +
-                  ` (${orange(count)} records in ${green(watch)})`);
+          ` (${orange(count)} records in ${green(watch)}; ${filterCount} filtered)`);
       reportWatch.reset().start();
       reportCount = 0;
     }
@@ -173,4 +229,8 @@ db.createReadStream(cfg)
   console.error(`Error streaming from database '${dbPath}':`, error);
   closeDb()
 });
+
+function isNil (value) {
+  return value === null || value === undefined;
+}
 
