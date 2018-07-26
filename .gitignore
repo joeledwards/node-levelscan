@@ -39,5 +39,4 @@ jspm_packages
 # Ignore VIM .swap files
 .*.swp
 
-db-hyper
 db-level
