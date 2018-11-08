@@ -2,6 +2,7 @@
 
 const path = require('path')
 const levelup = require('levelup');
+const leveldown = require('leveldown');
 const program = require('commander');
 const durations = require('durations');
 const {blue, hex, green, orange, yellow} = require('@buzuli/color')
@@ -115,7 +116,7 @@ if (program.args.length != 1) {
 }
 
 let dbPath = path.resolve(program.args[0]);
-let db = levelup(dbPath);
+let db = levelup(leveldown(dbPath));
 
 // Function which closes the database, reporting any errors to stdout.
 function closeDb() {
@@ -205,10 +206,10 @@ db.createReadStream(cfg)
       console.log(JSON.stringify(record));
     } else if (program.excludeKeys) {
       if (!program.excludeValues) {
-        console.log(record.value);
+        console.log(`${record.value}`);
       }
     } else if (program.excludeValues) {
-      console.log(record.key);
+      console.log(`${record.key}`);
     } else {
       console.log(`${record.key || ""} ${yellow('=>')} ${record.value || ""}`);
     }
