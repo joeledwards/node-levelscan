@@ -1,121 +1,184 @@
 #!/usr/bin/env node
 
 const path = require('path')
+const yargs = require('yargs')
 const levelup = require('levelup');
 const leveldown = require('leveldown');
-const program = require('commander');
 const durations = require('durations');
 const {blue, hex, green, orange, yellow} = require('@buzuli/color')
 
 const defaultLimit = 100;
 
-program
-.arguments('<db-path>')
-.option('-c, --count',
-        'Just count the number of keys (bounds apply,' +
-        ' implies --unlimited unless --limit is specified')
-.option('-e, --key-encoding <encoding>', 'Encoding for keys.')
-.option('-E, --value-encoding <encoding>', 'Encoding for values.')
-.option('-j, --json', 'Format records as JSON.')
-.option('--gt <key>', 'Exclusive lower bound for the stream.')
-.option('--gte <key>', 'Inclusive lower bound for the stream.')
-.option('--lt <key>', 'Exclusive upper bound for the stream.')
-.option('--lte <key>', 'Inclusive upper bound for the stream.')
-.option('-l, --limit <limit>',
-        `Maximum number of records to stream (default ${defaultLimit}).`,
-        parseInt)
-.option('-L, --unlimited', 'Stream all records from the database (no limit).')
-.option('-r, --reverse', 'Stream in descending instead of ascending order.')
-.option('-q, --quiet', 'Only output records (or supress progress for count)')
-.option('-K, --kx <key-expression', 'Only return records with a matching key')
-.option('-V, --vx <value-expression', 'Only return records with a matching value')
-.option('-x, --exclude-keys', 'Exclude keys from the stream.')
-.option('-X, --exclude-values', 'Exclude values from the stream.')
-.parse(process.argv);
+const args = yargs
+  .command('$0 <db-path>', 'Inspect the contents of a LevelDB', yargs => {
+    yargs.positional('db-path', {
+      type: 'string',
+      desc: 'path to the LevelDB to inspect'
+    })
+  })
+  .option('count', {
+    type: 'boolean',
+    desc: 'just count the number of keys (bounds apply, implies --unlimited unless --limit is specified)',
+    default: false,
+    alias: 'c'
+  })
+  .option('key-encoding', {
+    type: 'string',
+    desc: 'encoding for keys',
+    alias: 'e'
+  })
+  .option('value-encoding', {
+    type: 'string',
+    desc: 'encoding for values',
+    alias: 'E'
+  })
+  .option('json', {
+    type: 'boolean',
+    desc: 'format records as JSON',
+    default: false,
+    alias: 'j'
+  })
+  .option('gt', {
+    type: 'string',
+    desc: 'exclusive lower bound for the stream'
+  })
+  .option('gte', {
+    type: 'string',
+    desc: 'inclusive lower bound for the stream'
+  })
+  .option('lt', {
+    type: 'string',
+    desc: 'exclusive upper bound for the stream'
+  })
+  .option('lte', {
+    type: 'string',
+    desc: 'inclusive upper bound for the stream'
+  })
+  .option('limit', {
+    desc: `maximum number of records to stream`,
+    coerce: parseInt,
+    alias: 'l'
+  })
+  .option('unlimited', {
+    type: 'boolean',
+    desc: 'stream all records from the database (no limit)',
+    default: false,
+    alias: 'L'
+  })
+  .option('reverse', {
+    type: 'boolean',
+    desc: 'stream in descending instead of ascending order',
+    default: false,
+    alias: 'r'
+  })
+  .option('quiet', {
+    type: 'boolean',
+    desc: 'only output records (or supress progress for count)',
+    default: false,
+    alias: 'q'
+  })
+  .option('kx', {
+    type: 'string',
+    desc: 'only return records with a key matching the regex',
+    alias: 'K'
+  })
+  .option('vx', {
+    type: 'string',
+    desc: 'only return records with a value matching the regex',
+    alias: 'V'
+  })
+  .option('exclude-keys', {
+    type: 'boolean',
+    desc: 'exclude keys from the stream',
+    default: false,
+    alias: 'x'
+  })
+  .option('exclude-values', {
+    type: 'boolean',
+    desc: 'exclude values from the stream',
+    default: false,
+    alias: 'X'
+  })
+  .argv
 
 let keyRegex = null;
 let valueRegex = null;
 let isUnlimited = true;
-let cfg = {};
+let cfg = {quiet: args.quiet};
 
-if (!program.count) {
-  if (program.keyEncoding) {
-    cfg.keyEncoding = program.keyEncoding;
+if (!args.count) {
+  if (args.keyEncoding) {
+    cfg.keyEncoding = args.keyEncoding;
   }
 
-  if (program.valueEncoding) {
-    cfg.valueEncoding = program.valueEncoding;
+  if (args.valueEncoding) {
+    cfg.valueEncoding = args.valueEncoding;
   }
 
-  cfg.keys = (isNil(keyRegex) && program.excludeKeys) ? false : true;
-  cfg.values = (isNil(valueRegex) && program.excludeValues) ? false : true;
-  cfg.reverse = program.reverse ? true : false;
+  cfg.keys = (isNil(keyRegex) && args.excludeKeys) ? false : true;
+  cfg.values = (isNil(valueRegex) && args.excludeValues) ? false : true;
+  cfg.reverse = args.reverse ? true : false;
 } else {
   cfg.keys = true;
   cfg.values = !isNil(valueRegex)
 }
 
-if (program.gt) {
-  cfg.gt = program.gt;
+if (args.gt) {
+  cfg.gt = args.gt;
   isUnlimited = false;
 }
 
-if (program.gte) {
-  cfg.gte = program.gte;
+if (args.gte) {
+  cfg.gte = args.gte;
   isUnlimited = false;
 }
 
-if (program.lt) {
-  cfg.lt = program.lt;
+if (args.lt) {
+  cfg.lt = args.lt;
   isUnlimited = false;
 }
 
-if (program.lte) {
-  cfg.lte = program.lte;
+if (args.lte) {
+  cfg.lte = args.lte;
   isUnlimited = false;
 }
 
-if (!program.unlimited) {
-  if (program.limit) {
-    cfg.limit = program.limit;
+if (!args.unlimited) {
+  if (args.limit) {
+    cfg.limit = args.limit;
     isUnlimited = false;
-  } else if (!program.count) {
+  } else if (!args.count) {
     cfg.limit = defaultLimit;
     isUnlimited = false;
   }
 }
 
-if (program.kx) {
+if (args.kx) {
   try {
-    keyRegex = new RegExp(program.kx)
+    keyRegex = new RegExp(args.kx)
   } catch (error) {
-    console.warn(`Invalid key expression: ${program.kx}`)
-    program.help()
+    console.warn(`Invalid key expression: ${args.kx}`)
+    args.help()
   }
 }
 
-if (program.vx) {
+if (args.vx) {
   try {
-    valueRegex = new RegExp(program.vx)
+    valueRegex = new RegExp(args.vx)
   } catch (error) {
-    console.warn(`Invalid key expression: ${program.vx}`)
-    program.help()
+    console.warn(`Invalid key expression: ${args.vx}`)
+    args.help()
   }
 }
 
 // Log function which can be silenced via the --quiet option
 function log(...args) {
-  if (!program.quiet) {
+  if (!cfg.quiet) {
     console.log(...args);
   }
 }
 
-// Exit, displaying help if a single database has not be identified.
-if (program.args.length != 1) {
-  program.help();
-}
-
-let dbPath = path.resolve(program.args[0]);
+let dbPath = args.dbPath
 let db = levelup(leveldown(dbPath));
 
 // Function which closes the database, reporting any errors to stdout.
@@ -129,7 +192,7 @@ function closeDb() {
   });
 }
 
-if (program.count) {
+if (args.count) {
   log(`Counting records in db: ${blue(dbPath)}`);
 } else {
   log(`Streaming from db: ${blue(dbPath)}`);
@@ -152,20 +215,20 @@ db.createReadStream(cfg)
 
   if (cfg.keys) {
     if (cfg.values) {
-      key = data.key
-      value = data.value
+      key = `${data.key}`
+      value = `${data.value}`
     } else {
-      key = data
+      key = `${data}`
     }
   } else if (cfg.values) {
-    value = data
+    value = `${data}`
   }
 
-  if (!program.excludeValues) {
+  if (!args.excludeValues) {
     record.value = value;
   }
 
-  if (!program.excludeKeys) {
+  if (!args.excludeKeys) {
     record.key = key;
   }
 
@@ -181,7 +244,7 @@ db.createReadStream(cfg)
 
   count++;
 
-  if (program.count) {
+  if (args.count) {
     reportCount++;
 
     if (reportWatch.duration().millis() >= 1000) {
@@ -193,32 +256,36 @@ db.createReadStream(cfg)
   } else {
     let record = {};
 
-    if (program.excludeKeys && !program.excludeValues) {
+    if (args.excludeKeys && !args.excludeValues) {
       record.value = data;
-    } else if (!program.excludeKeys && program.excludeValues) {
+    } else if (!args.excludeKeys && args.excludeValues) {
       record.key = data;
     } else {
       record.key = data.key;
       record.value = data.value;
     }
 
-    if (program.json) {
-      console.log(JSON.stringify(record));
-    } else if (program.excludeKeys) {
-      if (!program.excludeValues) {
-        console.log(`${record.value}`);
+    if (args.json) {
+      console.log(JSON.stringify({
+        key: record.key,
+        value: record.value
+      }));
+    } else if (args.excludeKeys) {
+      if (!args.excludeValues) {
+        console.log(record.value);
       }
-    } else if (program.excludeValues) {
-      console.log(`${record.key}`);
+    } else if (args.excludeValues) {
+      console.log(record.key);
     } else {
       console.log(`${record.key || ""} ${yellow('=>')} ${record.value || ""}`);
     }
   }
 })
 .on('end', () => {
-  if (program.count) {
-    let limitString = isUnlimited ? "All records counted. " :
-        "Limited count; may not include all records.";
+  if (args.count) {
+    let limitString = (isUnlimited || count < args.limit)
+      ? "All records counted. "
+      : "Limited count; may not include all records.";
 
     console.log(`Counted ${orange(count)} records in ${green(watch)}. ${limitString}`);
   } else {
