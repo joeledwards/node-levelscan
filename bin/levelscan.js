@@ -152,13 +152,13 @@ db.createReadStream(cfg)
 
   if (cfg.keys) {
     if (cfg.values) {
-      key = data.key
-      value = data.value
+      key = `${data.key}`
+      value = `${data.value}`
     } else {
-      key = data
+      key = `${data}`
     }
   } else if (cfg.values) {
-    value = data
+    value = `${data}`
   }
 
   if (!program.excludeValues) {
