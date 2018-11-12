@@ -1,6 +1,6 @@
 {
   "name": "levelscan",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "LevelDB command line scanning utility",
   "bin": {
     "levelscan": "./bin/levelscan.js"
