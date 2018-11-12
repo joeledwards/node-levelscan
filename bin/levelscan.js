@@ -106,6 +106,24 @@ let valueRegex = null;
 let isUnlimited = true;
 let cfg = {quiet: args.quiet};
 
+if (args.kx) {
+  try {
+    keyRegex = new RegExp(args.kx)
+  } catch (error) {
+    console.warn(`Invalid key expression: ${args.kx}`)
+    args.help()
+  }
+}
+
+if (args.vx) {
+  try {
+    valueRegex = new RegExp(args.vx)
+  } catch (error) {
+    console.warn(`Invalid key expression: ${args.vx}`)
+    args.help()
+  }
+}
+
 if (!args.count) {
   if (args.keyEncoding) {
     cfg.keyEncoding = args.keyEncoding;
@@ -115,8 +133,8 @@ if (!args.count) {
     cfg.valueEncoding = args.valueEncoding;
   }
 
-  cfg.keys = (isNil(keyRegex) && args.excludeKeys) ? false : true;
-  cfg.values = (isNil(valueRegex) && args.excludeValues) ? false : true;
+  cfg.keys = !(isNil(keyRegex) && args.excludeKeys)
+  cfg.values = !(isNil(valueRegex) && args.excludeValues)
   cfg.reverse = args.reverse ? true : false;
 } else {
   cfg.keys = true;
@@ -150,24 +168,6 @@ if (!args.unlimited) {
   } else if (!args.count) {
     cfg.limit = defaultLimit;
     isUnlimited = false;
-  }
-}
-
-if (args.kx) {
-  try {
-    keyRegex = new RegExp(args.kx)
-  } catch (error) {
-    console.warn(`Invalid key expression: ${args.kx}`)
-    args.help()
-  }
-}
-
-if (args.vx) {
-  try {
-    valueRegex = new RegExp(args.vx)
-  } catch (error) {
-    console.warn(`Invalid key expression: ${args.vx}`)
-    args.help()
   }
 }
 
@@ -257,12 +257,12 @@ db.createReadStream(cfg)
     let record = {};
 
     if (args.excludeKeys && !args.excludeValues) {
-      record.value = data;
+      record.value = value;
     } else if (!args.excludeKeys && args.excludeValues) {
-      record.key = data;
+      record.key = key;
     } else {
-      record.key = data.key;
-      record.value = data.value;
+      record.key = key;
+      record.value = value;
     }
 
     if (args.json) {
