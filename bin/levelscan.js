@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
+const c = require('@buzuli/color')
 const path = require('path')
 const yargs = require('yargs')
-const levelup = require('levelup');
-const leveldown = require('leveldown');
+const level = require('level')
+const buzJson = require('@buzuli/json')
 const durations = require('durations');
-const {blue, hex, green, orange, yellow} = require('@buzuli/color')
 
 const defaultLimit = 100;
 
@@ -179,7 +179,7 @@ function log(...args) {
 }
 
 let dbPath = args.dbPath
-let db = levelup(leveldown(dbPath));
+let db = level(dbPath);
 
 // Function which closes the database, reporting any errors to stdout.
 function closeDb() {
@@ -193,12 +193,12 @@ function closeDb() {
 }
 
 if (args.count) {
-  log(`Counting records in db: ${blue(dbPath)}`);
+  log(`Counting records in db: ${c.blue(dbPath)}`);
 } else {
-  log(`Streaming from db: ${blue(dbPath)}`);
+  log(`Streaming from db: ${c.blue(dbPath)}`);
 }
 
-log(`Read stream options:\n${hex('c4c')(JSON.stringify(cfg, null, 2))}`);
+log(`Read stream options:\n${buzJson(cfg)}`);
 
 let count = 0;
 let watch = durations.stopwatch().start();
@@ -248,8 +248,8 @@ db.createReadStream(cfg)
     reportCount++;
 
     if (reportWatch.duration().millis() >= 1000) {
-      log(`${orange(reportCount)} records in the last ${green(reportWatch)}` +
-          ` (${orange(count)} records in ${green(watch)}; ${filterCount} filtered)`);
+      log(`${c.orange(reportCount)} records in the last ${c.green(reportWatch)}` +
+          ` (${c.orange(count)} records in ${c.green(watch)}; ${filterCount} filtered)`);
       reportWatch.reset().start();
       reportCount = 0;
     }
@@ -277,7 +277,7 @@ db.createReadStream(cfg)
     } else if (args.excludeValues) {
       console.log(record.key);
     } else {
-      console.log(`${record.key || ""} ${yellow('=>')} ${record.value || ""}`);
+      console.log(`${record.key || ""} ${c.yellow('=>')} ${record.value || ""}`);
     }
   }
 })
@@ -287,9 +287,9 @@ db.createReadStream(cfg)
       ? "All records counted. "
       : "Limited count; may not include all records.";
 
-    console.log(`Counted ${orange(count)} records in ${green(watch)}. ${limitString}`);
+    console.log(`Counted ${c.orange(count)} records in ${c.green(watch)}. ${limitString}`);
   } else {
-    log(`Read ${orange(count)} records in ${green(watch)}`);
+    log(`Read ${c.orange(count)} records in ${c.green(watch)}`);
   }
 })
 .on('close', () => closeDb())
